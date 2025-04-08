@@ -1,0 +1,14 @@
+[project]
+name = "digital-human-tools"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "click>=8.1.8",
+    "dotenv>=0.9.9",
+    "ffmpeg-python>=0.2.0",
+    "gradio>=5.23.3",
+    "openai>=1.59.9",
+    "requests>=2.32.3",
+]
