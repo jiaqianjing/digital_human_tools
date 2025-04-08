@@ -24,7 +24,7 @@ class VoiceGenerator:
         return response.json()
 
     def create_speech(self, text, voice, model="FunAudioLLM/CosyVoice2-0.5B",
-                     speed=1, gain=0, sample_rate=24000):
+                     speed=1, gain=0, sample_rate=24000, response_format="wav"):
         """生成语音"""
         url = f"{self.base_url}/speech"
         data = {

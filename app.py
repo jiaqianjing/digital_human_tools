@@ -91,7 +91,7 @@ def split_video_audio(video_file, start_time=None, duration=None):
     except Exception as e:
         return f"处理过程中出错: {str(e)}", None
 
-def generate_speech(text, model_choice, voice, speed, gain):
+def generate_speech(text, model_choice, voice, speed, gain, response_format, sample_rate):
     """处理语音合成请求"""
     if not text:
         return "请输入要合成的文本", None
@@ -109,7 +109,9 @@ def generate_speech(text, model_choice, voice, speed, gain):
             model=model_id,
             voice=voice,
             speed=speed,
-            gain=gain
+            gain=gain,
+            response_format=response_format,
+            sample_rate=sample_rate
         )
         
         # 保存音频文件
@@ -212,12 +214,23 @@ with gr.Blocks(title="数字人工具包") as demo:
                         choices=built_in_voices + voice_generator.get_voice_list(),
                         label="选择声音",
                         interactive=True,
-                        value="FunAudioLLM/CosyVoice2-0.5B:diana"
+                        value=built_in_voices[0]
                     )
                     with gr.Row():
+                        response_format = gr.Dropdown(
+                            choices=["mp3", "opus", "wav", "pcm"],
+                            label="输出格式",
+                            value="wav"
+                        )
+                        sample_rate = gr.Dropdown(
+                            choices=[8000, 16000, 24000, 32000, 44100, 48000],
+                            info="opus: Supports 48000 Hz. wav, pcm: Supports 8000, 16000, 24000, 32000, 44100 Hz, with a default of 44100 Hz. mp3: Supports 32000, 44100 Hz, with a default of 44100 Hz.",
+                            label="采样率",
+                            value=44100
+                        )
                         speed_slider = gr.Slider(
-                            minimum=0.5,
-                            maximum=2.0,
+                            minimum=0.25,
+                            maximum=4.0,
                             value=1.0,
                             step=0.1,
                             label="语速"
@@ -271,7 +284,7 @@ with gr.Blocks(title="数字人工具包") as demo:
 
     generate_btn.click(
         generate_speech,
-        inputs=[text_input, model_select, voice_select, speed_slider, gain_slider],
+        inputs=[text_input, model_select, voice_select, speed_slider, gain_slider, response_format, sample_rate],
         outputs=[generate_status, generated_audio]
     )
 
