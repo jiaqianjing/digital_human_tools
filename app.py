@@ -149,6 +149,7 @@ with gr.Blocks(title="数字人工具包") as demo:
     with gr.Tabs():
         # 视频分离音频标签页
         with gr.Tab("视频分离音频"):
+            gr.Markdown("### 视频分离音频\n\n* 将 mp4 格式的视频文件转成音频文件，支持视频文件的开始时间、持续时间分离音频\n* 使用ffmpeg分离音频：ffmpeg -ss 开始时间 -t 持续时间 -i 视频文件 -code:a copy 提取的音频文件")
             with gr.Row():
                 with gr.Column():
                     video_input = gr.Video(label="上传视频文件")
@@ -168,16 +169,20 @@ with gr.Blocks(title="数字人工具包") as demo:
 
         # 语音转写标签页
         with gr.Tab("语音转写"):
+            gr.Markdown("### 语音转写\n\n* 选择模型：FunAudioLLM/SenseVoiceSmall")
             audio_input_transcribe = gr.Audio(label="上传要转写的音频", type="filepath")
             transcribe_btn = gr.Button("开始转写", variant="primary")
             transcription_output = gr.Textbox(label="转写结果")
             
         # 语音克隆标签页
         with gr.Tab("语音克隆"):
+            gr.Markdown("### 语音克隆\n\n* 克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分\n* 根据创建的音色，文字转音频")
             with gr.Row():
                 with gr.Column():
                     audio_input = gr.Audio(label="上传参考音频", type="filepath")
-                    reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容")
+                    with gr.Row():
+                        reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容", scale=4)
+                        transcribe_ref_btn = gr.Button("转写音频", scale=1, variant="primary")
                     target_text = gr.Textbox(label="目标生成文本", placeholder="请输入要生成的文本内容")
                     model_choice = gr.Dropdown(
                         choices=list(AVAILABLE_MODELS.keys()),
@@ -185,7 +190,7 @@ with gr.Blocks(title="数字人工具包") as demo:
                         value="CosyVoice2"
                     )
                     voice_id = gr.Textbox(
-                        label="声音ID",
+                        label="克隆音色ID",
                         value="voice_" + os.urandom(4).hex(),
                         placeholder="请输入唯一的声音ID"
                     )
@@ -197,6 +202,7 @@ with gr.Blocks(title="数字人工具包") as demo:
 
         # 语音合成标签页
         with gr.Tab("语音合成"):
+            gr.Markdown("### 语音合成\n\n* 内置音色：alex, anna, bella, benjamin, charles, claire, david, diana\n* 克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分\n* 根据以上两种选择，文字转音频")
             with gr.Row():
                 with gr.Column():
                     text_input = gr.Textbox(
@@ -212,7 +218,7 @@ with gr.Blocks(title="数字人工具包") as demo:
                     )
                     voice_select = gr.Dropdown(
                         choices=built_in_voices + voice_generator.get_voice_list(),
-                        label="选择声音",
+                        label="选择音色（内置音色：alex, anna, bella, benjamin, charles, claire, david, diana，克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分）",
                         interactive=True,
                         value=built_in_voices[0]
                     )
@@ -248,22 +254,29 @@ with gr.Blocks(title="数字人工具包") as demo:
                     generate_status = gr.Textbox(label="处理状态")
                     generated_audio = gr.Audio(label="合成的音频")
 
-        # 语音管理标签页
-        with gr.Tab("语音管理"):
+        # 克隆语音管理标签页    
+        with gr.Tab("克隆语音管理"):
+            gr.Markdown("### 克隆语音管理\n\n* 删除克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分")
             with gr.Row():
                 with gr.Column():
                     voice_list = gr.Dropdown(
                         choices=voice_generator.get_voice_list(),
-                        label="选择要删除的语音",
+                        label="选择要删除的克隆音色",
                         interactive=True
                     )
                     with gr.Row():
                         refresh_btn = gr.Button("刷新列表", variant="secondary")
-                        delete_btn = gr.Button("删除语音", variant="primary")
+                        delete_btn = gr.Button("删除克隆音色", variant="primary")
                 with gr.Column():
                     manage_status = gr.Textbox(label="处理状态")
 
     # 绑定事件
+    transcribe_ref_btn.click(
+        transcribe_audio,
+        inputs=[audio_input],
+        outputs=[reference_text]
+    )
+
     clone_btn.click(
         process_voice_clone,
         inputs=[audio_input, reference_text, target_text, model_choice, voice_id],
