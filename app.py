@@ -5,11 +5,29 @@ from voice_clone import VoiceClone
 from voice2text import AudioTranscriber
 from split_vedio2audio import VideoAudioSplitter
 from voice_generate import VoiceGenerator
+import sys
 
+# 检查.env文件是否存在
+if not os.path.exists('.env'):
+    print("\n错误：缺少 .env 文件！")
+    print("请按照以下步骤设置：")
+    print("1. 复制 .env.example 文件并重命名为 .env")
+    print("2. 在 .env 文件中设置您的 SILICONFLOW_API_KEY")
+    print("3. 重新运行程序\n")
+    sys.exit(1)
+
+# 加载环境变量
 load_dotenv()
 
-# 初始化 API key
+# 检查必要的环境变量
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY")
+if not SILICONFLOW_API_KEY:
+    print("\n错误：SILICONFLOW_API_KEY 未设置！")
+    print("请在 .env 文件中设置有效的 SILICONFLOW_API_KEY")
+    print("如果您还没有 API 密钥，请联系管理员获取\n")
+    sys.exit(1)
+
+# 初始化服务
 voice_clone = VoiceClone(SILICONFLOW_API_KEY)
 transcriber = AudioTranscriber(SILICONFLOW_API_KEY)
 video_splitter = VideoAudioSplitter()
@@ -176,12 +194,12 @@ with gr.Blocks(title="数字人工具包") as demo:
             
         # 语音克隆标签页
         with gr.Tab("语音克隆"):
-            gr.Markdown("### 语音克隆\n\n* 克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分\n* 根据创建的音色，文字转音频")
+            gr.Markdown("### 语音克隆\n\n* 克隆音色：上传音频以及对应的转录文本，生成【克隆音色ID】\n* 根据创建的音色，文字转音频")
             with gr.Row():
                 with gr.Column():
                     audio_input = gr.Audio(label="上传参考音频", type="filepath")
                     with gr.Row():
-                        reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容", scale=4)
+                        reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容（可点击旁边的【转写音频】按钮后编辑）", scale=4)
                         transcribe_ref_btn = gr.Button("转写音频", scale=1, variant="primary")
                     target_text = gr.Textbox(label="目标生成文本", placeholder="请输入要生成的文本内容")
                     model_choice = gr.Dropdown(
@@ -190,7 +208,7 @@ with gr.Blocks(title="数字人工具包") as demo:
                         value="CosyVoice2"
                     )
                     voice_id = gr.Textbox(
-                        label="克隆音色ID",
+                        label="克隆音色ID（用户可以自己定义，最好能见名知意，便于区分不用音色）",
                         value="voice_" + os.urandom(4).hex(),
                         placeholder="请输入唯一的声音ID"
                     )
