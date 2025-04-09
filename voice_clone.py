@@ -87,34 +87,32 @@ class VoiceClone:
         Returns:
             响应结果字典
         """
-        try:
-            if not os.path.exists(audio_path):
-                print(f"音频文件 {audio_path} 不存在")
-                return None
-            
-            # 读取并编码音频文件
-            with open(audio_path, "rb") as audio_file:
-                audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
-            
-            url = f"{self.base_url}/uploads/audio/voice"
-            headers = {
-                "Authorization": f"Bearer {self.api_key}",
-                "Content-Type": "application/json"
-            }
-            
-            data = {
-                "model": model_id,
-                "customName": voice_id,
-                "audio": f"data:audio/mpeg;base64,{audio_base64}",
-                "text": text
-            }
-            
-            response = requests.post(url, headers=headers, data=json.dumps(data))
-            return response.json()
-            
-        except Exception as e:
-            print(f"上传语音文件失败: {str(e)}")
+        if not os.path.exists(audio_path):
+            print(f"音频文件 {audio_path} 不存在")
             return None
+        
+        # 读取并编码音频文件
+        with open(audio_path, "rb") as audio_file:
+            audio_base64 = base64.b64encode(audio_file.read()).decode('utf-8')
+        
+        url = f"{self.base_url}/uploads/audio/voice"
+        headers = {
+            "Authorization": f"Bearer {self.api_key}",
+            "Content-Type": "application/json"
+        }
+        
+        data = {
+            "model": model_id,
+            "customName": voice_id,
+            "audio": f"data:audio/mpeg;base64,{audio_base64}",
+            "text": text
+        }
+        response = requests.post(url, headers=headers, data=json.dumps(data)).json()
+        print(f"上传语音文件响应: {response}")
+        if 'code' in response:
+            raise Exception(response['message'])
+        return response
+            
 
     def speech(
         self,
