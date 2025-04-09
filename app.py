@@ -220,33 +220,90 @@ with gr.Blocks(title="数字人工具包") as demo:
             
         # 语音克隆标签页
         with gr.Tab("语音克隆"):
-            gr.Markdown("### 语音克隆\n\n* 克隆音色：上传音频以及对应的转录文本，生成【克隆音色ID】\n* 根据创建的音色，文字转音频")
-            with gr.Row():
-                with gr.Column():
-                    audio_input = gr.Audio(label="上传参考音频", type="filepath")
+            gr.Markdown("### 语音克隆")
+            
+            with gr.Tabs():
+                # 上传音色部分
+                with gr.TabItem("上传音色"):
+                    gr.Markdown("#### 上传音色\n\n* 上传音频以及对应的转录文本，生成克隆音色")
                     with gr.Row():
-                        reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容（可点击旁边的【转写音频】按钮后编辑）", scale=4)
-                        transcribe_ref_btn = gr.Button("转写音频", scale=1, variant="primary")
-                    target_text = gr.Textbox(label="目标生成文本", placeholder="请输入要生成的文本内容")
-                    model_choice = gr.Dropdown(
-                        choices=list(AVAILABLE_MODELS.keys()),
-                        label="选择模型",
-                        value="CosyVoice2"
-                    )
-                    voice_id = gr.Textbox(
-                        label="克隆音色ID（用户可以自己定义，only letters and digits and _ and - are supported. Should not exceed 64 chars）",
-                        value="voice_" + os.urandom(4).hex(),
-                        placeholder="请输入唯一的声音ID"
-                    )
-                    clone_btn = gr.Button("开始克隆", variant="primary")
+                        with gr.Column():
+                            audio_input = gr.Audio(label="上传参考音频", type="filepath")
+                            with gr.Row():
+                                reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容（可点击旁边的【转写音频】按钮后编辑）", scale=4)
+                                transcribe_ref_btn = gr.Button("转写音频", scale=1, variant="primary")
+                            model_choice = gr.Dropdown(
+                                choices=list(AVAILABLE_MODELS.keys()),
+                                label="选择模型",
+                                value="CosyVoice2"
+                            )
+                            voice_id = gr.Textbox(
+                                label="克隆音色ID（用户可以自己定义，只支持字母、数字、下划线和连字符，不超过64个字符）",
+                                value="voice_" + os.urandom(4).hex(),
+                                placeholder="请输入唯一的声音ID"
+                            )
+                            upload_btn = gr.Button("上传音色", variant="primary")
 
-                with gr.Column():
-                    output_message = gr.Textbox(label="处理状态")
-                    output_audio = gr.Audio(label="生成的音频")
+                        with gr.Column():
+                            upload_status = gr.Textbox(label="上传状态")
+                            with gr.Row():
+                                refresh_clone_list_btn = gr.Button("🔄 刷新音色列表", variant="secondary")
+                                delete_clone_btn = gr.Button("🗑️ 删除音色", variant="primary")
+                            voice_list = gr.Dropdown(
+                                choices=voice_generator.get_voice_list(),
+                                label="已上传的音色列表",
+                                interactive=True
+                            )
+                            voice_manage_status = gr.Textbox(label="音色管理状态", visible=True)
+                
+                # 克隆语音部分
+                with gr.TabItem("克隆语音"):
+                    gr.Markdown("#### 克隆语音\n\n* 根据已上传的音色生成语音")
+                    with gr.Row():
+                        with gr.Column():
+                            clone_text = gr.Textbox(
+                                label="要生成的文本",
+                                placeholder="请输入要生成的文本内容",
+                                lines=5
+                            )
+                            clone_model_select = gr.Dropdown(
+                                choices=list(AVAILABLE_MODELS.keys()),
+                                label="选择模型",
+                                interactive=True,
+                                value="CosyVoice2"
+                            )
+                            clone_voice_select = gr.Dropdown(
+                                choices=voice_generator.get_voice_list(),
+                                label="选择音色（从已上传的音色中选择）",
+                                interactive=True
+                            )
+                            with gr.Row():
+                                refresh_voice_btn = gr.Button("🔄 刷新音色列表", variant="secondary")
+                            
+                            with gr.Row():
+                                clone_speed_slider = gr.Slider(
+                                    minimum=0.25,
+                                    maximum=4.0,
+                                    value=1.0,
+                                    step=0.1,
+                                    label="语速"
+                                )
+                                clone_gain_slider = gr.Slider(
+                                    minimum=-20,
+                                    maximum=20,
+                                    value=0,
+                                    step=1,
+                                    label="音量增益"
+                                )
+                            clone_btn = gr.Button("开始生成", variant="primary")
+
+                        with gr.Column():
+                            clone_status = gr.Textbox(label="生成状态")
+                            cloned_audio = gr.Audio(label="生成的音频")
 
         # 语音合成标签页
         with gr.Tab("语音合成"):
-            gr.Markdown("### 语音合成\n\n* 内置音色：alex, anna, bella, benjamin, charles, claire, david, diana\n* 克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分\n* 根据以上两种选择，文字转音频")
+            gr.Markdown("### 语音合成\n\n* 使用内置音色：alex, anna, bella, benjamin, charles, claire, david, diana\n* 根据选择的默认音色，将文字转换为音频")
             with gr.Row():
                 with gr.Column():
                     text_input = gr.Textbox(
@@ -260,18 +317,12 @@ with gr.Blocks(title="数字人工具包") as demo:
                         interactive=True,
                         value="CosyVoice2"
                     )
-                    with gr.Row():
-                        voice_select = gr.Dropdown(
-                            choices=built_in_voices + voice_generator.get_voice_list(),
-                            label="选择音色（内置音色：alex, anna, bella, benjamin, charles, claire, david, diana，克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分）",
-                            interactive=True,
-                            value=built_in_voices[0],
-                            scale=4
-                        )
-                        with gr.Column(scale=1):
-                            refresh_voice_select_btn = gr.Button("🔄 刷新音色列表", variant="secondary")
-                            delete_voice_btn = gr.Button("🗑️ 删除音色", variant="primary")
-                    voice_manage_status = gr.Textbox(label="音色管理状态", visible=True)
+                    default_voice_select = gr.Dropdown(
+                        choices=built_in_voices,
+                        label="选择音色",
+                        interactive=True,
+                        value=built_in_voices[0]
+                    )
                     with gr.Row():
                         response_format = gr.Dropdown(
                             choices=["mp3", "opus", "wav", "pcm"],
@@ -324,35 +375,106 @@ with gr.Blocks(title="数字人工具包") as demo:
     )
 
     # 定义刷新音色列表函数
-    def refresh_voice_select():
-        return gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list())
+    def refresh_clone_voice_list():
+        return gr.Dropdown(choices=voice_generator.get_voice_list())
 
     # 定义删除并刷新音色的函数
     def delete_and_refresh_voice(voice):
-        # 检查是否是内置音色
-        if voice in built_in_voices:
-            return "内置音色无法删除！", gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list()), "内置音色无法删除！"
+        if not voice:
+            return "请选择要删除的音色！", gr.Dropdown(choices=voice_generator.get_voice_list())
         status, _ = delete_voice(voice)
-        return status, gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list()), status
+        return status, gr.Dropdown(choices=voice_generator.get_voice_list())
 
-    # 绑定音色列表刷新事件
-    refresh_voice_select_btn.click(
-        refresh_voice_select,
-        outputs=[voice_select]
+    # 定义上传音色功能
+    def upload_voice(audio_file, reference_text, model_choice, voice_id):
+        if not audio_file or not reference_text:
+            return "请确保音频文件和参考文本都已填写", gr.Dropdown(choices=voice_generator.get_voice_list())
+
+        # 验证voice_id
+        is_valid, message = validate_voice_id(voice_id)
+        if not is_valid:
+            return message, gr.Dropdown(choices=voice_generator.get_voice_list())
+
+        try:
+            # 上传参考音频
+            model_id = AVAILABLE_MODELS[model_choice]
+            print(f"上传语音文件: {audio_file}")
+            result = voice_clone.upload_voice_base64(
+                audio_file,
+                voice_id,
+                model_id,
+                reference_text
+            )
+
+            if not result or 'uri' not in result:
+                return "上传音频失败", gr.Dropdown(choices=voice_generator.get_voice_list())
+
+            return "音色上传成功！", gr.Dropdown(choices=voice_generator.get_voice_list())
+
+        except Exception as e:
+            return f"处理过程中出错: {str(e)}", gr.Dropdown(choices=voice_generator.get_voice_list())
+
+    # 定义克隆语音功能
+    def clone_voice(text, model_choice, voice, speed, gain):
+        if not text or not voice:
+            return "请确保文本和音色都已填写", None
+        
+        try:
+            # 生成输出音频文件路径
+            output_dir = "outputs/cloned"
+            os.makedirs(output_dir, exist_ok=True)
+            output_path = os.path.join(output_dir, f"cloned_{os.urandom(4).hex()}.wav")
+            
+            # 获取音色URI
+            voice_uri = voice.split(':', 1)[-1]
+            model_id = AVAILABLE_MODELS[model_choice]
+            
+            # 生成克隆语音
+            voice_clone.speech(
+                text,
+                voice=voice_uri,
+                model_id=model_id,
+                speech_file_path=output_path
+            )
+            
+            return "语音生成成功！", output_path
+        except Exception as e:
+            return f"处理过程中出错: {str(e)}", None
+
+    # 绑定上传音色相关事件
+    upload_btn.click(
+        upload_voice,
+        inputs=[audio_input, reference_text, model_choice, voice_id],
+        outputs=[upload_status, voice_list]
     )
-
-    # 绑定删除音色事件
-    delete_voice_btn.click(
+    
+    refresh_clone_list_btn.click(
+        refresh_clone_voice_list,
+        outputs=[voice_list]
+    )
+    
+    delete_clone_btn.click(
         delete_and_refresh_voice,
-        inputs=[voice_select],
-        outputs=[voice_manage_status, voice_select, voice_manage_status]
+        inputs=[voice_list],
+        outputs=[voice_manage_status, voice_list]
     )
-
-    # 在成功克隆后也刷新音色列表
+    
+    # 绑定克隆语音相关事件
+    refresh_voice_btn.click(
+        refresh_clone_voice_list,
+        outputs=[clone_voice_select]
+    )
+    
     clone_btn.click(
-        process_voice_clone_and_refresh,
-        inputs=[audio_input, reference_text, target_text, model_choice, voice_id],
-        outputs=[output_message, output_audio, voice_select]
+        clone_voice,
+        inputs=[clone_text, clone_model_select, clone_voice_select, clone_speed_slider, clone_gain_slider],
+        outputs=[clone_status, cloned_audio]
+    )
+    
+    transcribe_ref_btn.click(
+        transcribe_audio,
+        inputs=[audio_input],
+        outputs=[reference_text]
     )
 
     transcribe_btn.click(
@@ -369,7 +491,7 @@ with gr.Blocks(title="数字人工具包") as demo:
 
     generate_btn.click(
         generate_speech,
-        inputs=[text_input, model_select, voice_select, speed_slider, gain_slider, response_format, sample_rate],
+        inputs=[text_input, model_select, default_voice_select, speed_slider, gain_slider, response_format, sample_rate],
         outputs=[generate_status, generated_audio]
     )
 
