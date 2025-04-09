@@ -268,7 +268,10 @@ with gr.Blocks(title="数字人工具包") as demo:
                             value=built_in_voices[0],
                             scale=4
                         )
-                        refresh_voice_select_btn = gr.Button("🔄 刷新音色列表", scale=1)
+                        with gr.Column(scale=1):
+                            refresh_voice_select_btn = gr.Button("🔄 刷新音色列表", variant="secondary")
+                            delete_voice_btn = gr.Button("🗑️ 删除音色", variant="primary")
+                    voice_manage_status = gr.Textbox(label="音色管理状态", visible=True)
                     with gr.Row():
                         response_format = gr.Dropdown(
                             choices=["mp3", "opus", "wav", "pcm"],
@@ -301,23 +304,6 @@ with gr.Blocks(title="数字人工具包") as demo:
                     generate_status = gr.Textbox(label="处理状态")
                     generated_audio = gr.Audio(label="合成的音频")
 
-        # 克隆语音管理标签页    
-        with gr.Tab("克隆语音管理"):
-            gr.Markdown("### 克隆语音管理\n\n* 删除克隆音色：从【语音克隆】创建的【克隆音色ID】作为前缀区分")
-            with gr.Row():
-                with gr.Column():
-                    voice_list = gr.Dropdown(
-                        choices=voice_generator.get_voice_list(),
-                        label="选择要删除的克隆音色",
-                        value=voice_generator.get_voice_list()[0],
-                        interactive=True
-                    )
-                    with gr.Row():
-                        refresh_btn = gr.Button("刷新列表", variant="secondary")
-                        delete_btn = gr.Button("删除克隆音色", variant="primary")
-                with gr.Column():
-                    manage_status = gr.Textbox(label="处理状态")
-
     # 绑定事件
     def send_to_voice_clone(audio):
         """将音频发送到语音克隆标签页"""
@@ -341,10 +327,25 @@ with gr.Blocks(title="数字人工具包") as demo:
     def refresh_voice_select():
         return gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list())
 
+    # 定义删除并刷新音色的函数
+    def delete_and_refresh_voice(voice):
+        # 检查是否是内置音色
+        if voice in built_in_voices:
+            return "内置音色无法删除！", gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list()), "内置音色无法删除！"
+        status, _ = delete_voice(voice)
+        return status, gr.Dropdown(choices=built_in_voices + voice_generator.get_voice_list()), status
+
     # 绑定音色列表刷新事件
     refresh_voice_select_btn.click(
         refresh_voice_select,
         outputs=[voice_select]
+    )
+
+    # 绑定删除音色事件
+    delete_voice_btn.click(
+        delete_and_refresh_voice,
+        inputs=[voice_select],
+        outputs=[voice_manage_status, voice_select, voice_manage_status]
     )
 
     # 在成功克隆后也刷新音色列表
@@ -370,17 +371,6 @@ with gr.Blocks(title="数字人工具包") as demo:
         generate_speech,
         inputs=[text_input, model_select, voice_select, speed_slider, gain_slider, response_format, sample_rate],
         outputs=[generate_status, generated_audio]
-    )
-
-    refresh_btn.click(
-        refresh_voice_list,
-        outputs=[voice_list]
-    )
-
-    delete_btn.click(
-        delete_voice,
-        inputs=[voice_list],
-        outputs=[manage_status, voice_list]
     )
 
 if __name__ == "__main__":
