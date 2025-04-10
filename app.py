@@ -190,7 +190,7 @@ with gr.Blocks(title="数字人工具包") as demo:
     with gr.Tabs():
         # 视频分离音频标签页
         with gr.Tab("视频分离音频"):
-            gr.Markdown("### 视频分离音频\n\n* 将 mp4 格式的视频文件转成音频文件，支持视频文件的开始时间、持续时间分离音频\n* 使用ffmpeg分离音频：ffmpeg -ss 开始时间 -t 持续时间 -i 视频文件 -code:a copy 提取的音频文件")
+            gr.Markdown("### 视频分离音频\n\n* 将 mp4 格式的视频文件转成音频文件，支持视频文件的开始时间、持续时间分离音频\n* 使用ffmpeg分离音频：ffmpeg -ss 开始时间 -t 持续时间 -i 视频文件 -c:a copy 提取的音频文件")
             with gr.Row():
                 with gr.Column():
                     video_input = gr.Video(label="上传视频文件")
@@ -208,7 +208,7 @@ with gr.Blocks(title="数字人工具包") as demo:
 
                 with gr.Column():
                     split_status = gr.Textbox(label="处理状态")
-                    output_audio_file = gr.Audio(label="提取的音频")
+                    output_audio_file = gr.Audio(label="提取的音频", show_download_button=True)
                     send_to_clone_btn = gr.Button("发送到语音克隆", variant="secondary")
 
         # 语音转写标签页
