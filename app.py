@@ -7,6 +7,7 @@ from voice2text import AudioTranscriber
 from split_vedio2audio import VideoAudioSplitter
 from voice_generate import VoiceGenerator
 import sys
+from volcano_voice import VolcanoVoice  # 导入火山引擎声音复刻类
 
 # 检查.env文件是否存在
 if not os.path.exists('.env'):
@@ -34,11 +35,36 @@ transcriber = AudioTranscriber(SILICONFLOW_API_KEY)
 video_splitter = VideoAudioSplitter()
 voice_generator = VoiceGenerator(SILICONFLOW_API_KEY)
 
+# 初始化火山引擎声音复刻服务
+VOLC_APPID = os.getenv("VOLC_APPID")
+VOLC_TOKEN = os.getenv("VOLC_TOKEN")
+VOLC_SECRET_KEY = os.getenv("VOLC_SECRET_KEY")
+
+# 检查火山引擎配置
+if not VOLC_APPID or not VOLC_TOKEN:
+    print("\n警告：缺少火山引擎API配置！")
+    print("如需使用火山引擎声音复刻功能，请在.env文件中设置VOLC_APPID和VOLC_TOKEN")
+    VOLC_APPID = ""
+    VOLC_TOKEN = ""
+    VOLC_SECRET_KEY = ""
+
+volcano_voice = VolcanoVoice(VOLC_APPID, VOLC_TOKEN, VOLC_SECRET_KEY)
+
 # 定义可用的模型
 AVAILABLE_MODELS = {
     "CosyVoice2": "FunAudioLLM/CosyVoice2-0.5B",
     "Fish Speech": "fishaudio/fish-speech-1.5",
     "GPT-SoVITS": "RVC-Boss/GPT-SoVITS"
+}
+
+# 火山引擎支持的语言
+VOLCANO_LANGUAGES = {
+    "中文": 0,
+    "英文": 1,
+    "日语": 2,
+    "西班牙语": 3,
+    "印尼语": 4,
+    "葡萄牙语": 5
 }
 
 # 定义内置声音
@@ -156,6 +182,79 @@ def generate_speech(text, model_choice, voice, speed, gain, response_format, sam
         return "语音合成成功！", output_path
     except Exception as e:
         return f"处理过程中出错: {str(e)}", None
+
+# 火山引擎声音复刻相关函数
+def volcano_clone_voice(audio_file, reference_text, voice_id, language):
+    """使用火山引擎API复刻声音"""
+    if not audio_file or not voice_id:
+        return "请确保音频文件和声音ID都已填写", None
+    
+    # 验证voice_id
+    is_valid, message = validate_voice_id(voice_id)
+    if not is_valid:
+        return message, None
+    
+    try:
+        # 调用火山引擎API上传音频并训练音色
+        result = volcano_voice.clone_voice(
+            audio_path=audio_file,
+            speaker_id=voice_id,
+            text=reference_text if reference_text else None,
+            language=VOLCANO_LANGUAGES[language]
+        )
+        
+        # 将新训练的音色ID添加到列表
+        volcano_voice.add_voice_to_list(voice_id)
+        
+        return f"声音复刻请求成功提交！请等待训练完成。结果: {result}", None
+    except Exception as e:
+        return f"处理过程中出错: {str(e)}", None
+
+def volcano_check_status(voice_id):
+    """检查火山引擎音色训练状态"""
+    if not voice_id:
+        return "请输入要查询的声音ID"
+    
+    try:
+        result = volcano_voice.get_voice_status(voice_id)
+        status_code = result.get("code", -1)
+        
+        if status_code == 0:
+            version = result.get("version", 0)
+            train_status = result.get("train_status", "unknown")
+            if train_status == "succeed":
+                return f"音色 {voice_id} 训练成功！当前版本: {version}/10"
+            elif train_status == "training":
+                return f"音色 {voice_id} 正在训练中，请稍后再查询。当前版本: {version}/10"
+            else:
+                return f"音色 {voice_id} 状态: {train_status}。当前版本: {version}/10"
+        else:
+            return f"查询失败，错误码: {status_code}，消息: {result.get('message', '未知错误')}"
+    except Exception as e:
+        return f"查询过程中出错: {str(e)}"
+
+def volcano_generate_speech(text, voice_id, language):
+    """使用火山引擎API生成语音"""
+    if not text or not voice_id:
+        return "请确保文本和声音ID都已填写", None
+    
+    try:
+        # 生成输出音频文件路径
+        output_dir = "outputs/volcano"
+        os.makedirs(output_dir, exist_ok=True)
+        output_path = os.path.join(output_dir, f"volcano_{voice_id}_{os.urandom(4).hex()}.wav")
+        
+        # 调用火山引擎API生成语音
+        output_file = volcano_voice.generate_speech(
+            text=text,
+            speaker_id=voice_id,
+            output_path=output_path,
+            language=VOLCANO_LANGUAGES[language]
+        )
+        
+        return "语音生成成功！", output_file
+    except Exception as e:
+        return f"生成过程中出错: {str(e)}", None
 
 def refresh_voice_list():
     """刷新语音列表"""
@@ -355,6 +454,66 @@ with gr.Blocks(title="数字人工具包") as demo:
                     generate_status = gr.Textbox(label="处理状态")
                     generated_audio = gr.Audio(label="合成的音频")
 
+        # 火山引擎声音复刻标签页
+        with gr.Tab("火山引擎声音复刻"):
+            gr.Markdown("### 火山引擎声音复刻 API 2.0\n\n* 支持中文、英文、日语、西班牙语、印尼语、葡萄牙语\n* 训练高质量的声音克隆，每个音色最多可训练10次")
+            
+            with gr.Tabs():
+                # 上传音色部分
+                with gr.TabItem("上传音色"):
+                    gr.Markdown("#### 上传音色\n\n* 上传音频以及对应的转录文本，生成克隆音色")
+                    with gr.Row():
+                        with gr.Column():
+                            volcano_audio_input = gr.Audio(label="上传参考音频", type="filepath")
+                            with gr.Row():
+                                volcano_reference_text = gr.Textbox(label="参考音频文本", placeholder="请输入参考音频对应的文本内容（可点击旁边的【转写音频】按钮后编辑）", scale=4)
+                                volcano_transcribe_btn = gr.Button("转写音频", scale=1, variant="primary")
+                            volcano_voice_id = gr.Textbox(
+                                label="克隆音色ID（用户可以自己定义，只支持字母、数字、下划线和连字符，不超过64个字符）",
+                                value="volcano_" + os.urandom(4).hex(),
+                                placeholder="请输入唯一的声音ID"
+                            )
+                            volcano_language = gr.Dropdown(
+                                choices=list(VOLCANO_LANGUAGES.keys()),
+                                label="音色语言",
+                                value="中文"
+                            )
+                            volcano_upload_btn = gr.Button("上传音色", variant="primary")
+
+                        with gr.Column():
+                            volcano_upload_status = gr.Textbox(label="上传状态")
+                            volcano_check_id = gr.Textbox(
+                                label="查询音色ID",
+                                placeholder="输入要查询的音色ID"
+                            )
+                            volcano_check_btn = gr.Button("查询训练状态", variant="primary")
+                            volcano_check_result = gr.Textbox(label="查询结果")
+                
+                # 合成语音部分
+                with gr.TabItem("合成语音"):
+                    gr.Markdown("#### 合成语音\n\n* 使用已训练好的音色合成语音")
+                    with gr.Row():
+                        with gr.Column():
+                            volcano_text = gr.Textbox(
+                                label="要合成的文本",
+                                placeholder="请输入要合成的文本内容",
+                                lines=5
+                            )
+                            volcano_tts_id = gr.Textbox(
+                                label="音色ID",
+                                placeholder="输入要使用的音色ID"
+                            )
+                            volcano_tts_language = gr.Dropdown(
+                                choices=list(VOLCANO_LANGUAGES.keys()),
+                                label="文本语言",
+                                value="中文"
+                            )
+                            volcano_tts_btn = gr.Button("开始合成", variant="primary")
+
+                        with gr.Column():
+                            volcano_tts_status = gr.Textbox(label="合成状态")
+                            volcano_tts_audio = gr.Audio(label="合成的音频")
+
     # 绑定事件
     def send_to_voice_clone(audio):
         """将音频发送到语音克隆标签页"""
@@ -493,6 +652,31 @@ with gr.Blocks(title="数字人工具包") as demo:
         generate_speech,
         inputs=[text_input, model_select, default_voice_select, speed_slider, gain_slider, response_format, sample_rate],
         outputs=[generate_status, generated_audio]
+    )
+
+    # 绑定火山引擎相关事件
+    volcano_transcribe_btn.click(
+        transcribe_audio,
+        inputs=[volcano_audio_input],
+        outputs=[volcano_reference_text]
+    )
+    
+    volcano_upload_btn.click(
+        volcano_clone_voice,
+        inputs=[volcano_audio_input, volcano_reference_text, volcano_voice_id, volcano_language],
+        outputs=[volcano_upload_status, volcano_check_result]
+    )
+    
+    volcano_check_btn.click(
+        volcano_check_status,
+        inputs=[volcano_check_id],
+        outputs=[volcano_check_result]
+    )
+    
+    volcano_tts_btn.click(
+        volcano_generate_speech,
+        inputs=[volcano_text, volcano_tts_id, volcano_tts_language],
+        outputs=[volcano_tts_status, volcano_tts_audio]
     )
 
 if __name__ == "__main__":
